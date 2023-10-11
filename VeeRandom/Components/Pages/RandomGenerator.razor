@@ -1,0 +1,104 @@
+﻿@page "/random-generator"
+@using VeeRandom.Generator;
+@using System.Text
+@using Microsoft.JSInterop
+@attribute [RenderModeServer]
+@inject IGenerator Generator
+@inject IJSRuntime JsRuntime
+
+<PageTitle>VeeRandom</PageTitle>
+
+<h1>Generate random numbers</h1>
+
+<div class="form-group">
+    <label for="numberCount">Enter the numbers count:</label>
+    <input id="numberCount" type="number" class="form-control" style="max-width: 300px;" @bind="count" />
+    @if (showError)
+    {
+        <span class="text-danger">The number must be between 1 and 1500.</span>
+    }
+</div>
+
+<br />
+
+<button class="btn btn-primary" @onclick="GenerateRandomNumbers">Generate</button>
+
+<br />
+<br />
+
+@if (randomNumbers.Count > 0)
+{
+    <button class="btn btn-success" @onclick="DownloadNumbers">Download</button>
+}
+
+<br />
+<br />
+
+@if (randomNumbers.Any())
+{
+    <h2>Generated Numbers:</h2>
+    <ul>
+        @foreach (var num in randomNumbers)
+        {
+            <li>@num</li>
+        }
+    </ul>
+}
+
+@code {
+    private int count = 1;
+    private List<long> randomNumbers = new();
+    private bool showError = false;
+
+    private void GenerateRandomNumbers()
+    {
+        randomNumbers = new();
+
+        if (count is > 1500 or < 1)
+        {
+            showError = true;
+            return;
+        }
+        else
+        {
+            showError = false;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            randomNumbers.Add(Generator.GenerateRandomNumber());
+        }
+    }
+
+    private async Task DownloadNumbers()
+    {
+        if (randomNumbers.Any())
+        {
+            string result = String.Join(" ", randomNumbers);
+            var contentType = "text/plain";
+            var fileName = "random_numbers.txt";
+
+            await JsRuntime.InvokeAsync<object>("BlazorDownloadFile.saveAsFile", fileName, contentType, result);
+        }
+    }
+}
+
+<script>
+    window.BlazorDownloadFile = {
+        saveAsFile: function (fileName, contentType, dataURL) {
+            const blob = new Blob([dataURL], { type: contentType });
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+
+            a.click();
+
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+    };
+</script>

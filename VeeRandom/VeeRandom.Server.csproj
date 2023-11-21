@@ -4,10 +4,19 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>1f3f3022-7fdb-4e35-bb60-79fde2e1e495</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Meziantou.Framework" Version="3.0.38" />
+    <PackageReference Include="Meziantou.Framework.ByteSize" Version="2.1.0" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.19.5" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\VeeRandom.Generator\VeeRandom.Generator.csproj" />
+    <ProjectReference Include="..\VeeRandom.MD5\VeeRandom.MD5.csproj" />
   </ItemGroup>
 
 </Project>

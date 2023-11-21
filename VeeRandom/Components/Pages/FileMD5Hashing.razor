@@ -1,0 +1,151 @@
+﻿@page "/md5-hashing-file"
+@using Microsoft.AspNetCore.Components.Forms
+@using System.IO
+@using VeeRandom.MD5
+@using System.Globalization
+@using Meziantou.Framework
+
+<PageTitle>MD5 Hashing</PageTitle>
+
+<h1>MD5 Hashing</h1>
+
+<div class="row">
+    <div class="col-md-3">
+        <h2>MD5 Hashing</h2>
+        <div class="form-group">
+            <label for="fileInput">Upload a file (max 1 GB):</label>
+            <InputFile id="fileInput" OnChange="e => LoadFile(e)"></InputFile>
+
+            @if (showErrorForFile)
+            {
+                <br/>
+                <span class="text-danger">File size exceeds the maximum allowed limit of 1 GB.</span>
+            }
+
+            @if (uploadedFile != null)
+            {
+                <div>
+                    @uploadedFile.FileName
+                    <progress value="@uploadedFile.UploadedBytes" max="@uploadedFile.Size"></progress>
+                    @uploadedFile.UploadedPercentage.ToString("F1")%
+                    (@FormatBytes(uploadedFile.UploadedBytes) / @FormatBytes(uploadedFile.Size))
+                </div>
+            }
+        </div>
+
+        <br />
+        <button class="btn btn-primary" @onclick="ComputeMD5Hash" disabled="@(uploadedFile is null || !uploadedFile.IsLoaded || isComputingHash)">
+            @if (isComputingHash)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span class="sr-only">Loading...</span>
+            }
+            else
+            {
+                <span>Compute MD5 Hash</span>
+            }
+
+        </button>
+        <br />
+        <br />
+        @if (!string.IsNullOrEmpty(hashResult))
+        {
+            <p>MD5 Hash Result:</p>
+            <p>@hashResult</p>
+        }
+    </div>
+
+    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/md5-hashing-text">MD5 Hashing for text</a>
+</div>
+
+@code {
+    private string hashResult = "";
+    private bool showErrorForFile = false;
+    private long maxFileSize1Gb = 1024L * 1024L * 1024L;
+
+    private bool isComputingHash { get; set; }
+    private FileUploadProgress? uploadedFile;
+    private CancellationTokenSource? cancellationTokenSource;
+
+
+    private record FileUploadProgress(string FileName, long Size)
+    {
+        public byte[] Data { get; set; } = Array.Empty<byte>();
+        public long UploadedBytes { get; set; }
+        public double UploadedPercentage => (double)UploadedBytes / (double)Size * 100d;
+
+        public bool IsLoaded => UploadedBytes == Size;
+    }
+
+    private async ValueTask LoadFile(InputFileChangeEventArgs e)
+    {
+        if (cancellationTokenSource != null)
+        {
+            cancellationTokenSource.Cancel();
+        }
+
+        cancellationTokenSource = new CancellationTokenSource();
+
+        uploadedFile = default;
+
+        IBrowserFile? file = e.File;
+
+        if (file.Size > maxFileSize1Gb)
+        {
+            showErrorForFile = true;
+            StateHasChanged();
+
+            return;
+        }
+
+        showErrorForFile = false;
+
+        uploadedFile = new FileUploadProgress(file.Name, file.Size);
+
+        await using var timer = new Timer(_ => InvokeAsync(() => StateHasChanged()));
+        timer.Change(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+
+        byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(4096);
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: maxFileSize1Gb, cancellationTokenSource.Token);
+            using var memoryStream = new MemoryStream();
+
+            while (await stream.ReadAsync(buffer, cancellationTokenSource.Token) is int read && read > 0)
+            {
+                uploadedFile.UploadedBytes += read;
+
+                memoryStream.Write(buffer.AsMemory().Slice(0, read).ToArray());
+            }
+
+            uploadedFile.Data = memoryStream.ToArray();
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+
+            StateHasChanged();
+        }
+    }
+
+    private string FormatBytes(long value)
+    {
+        return ByteSize.FromBytes(value).ToString("fi2", CultureInfo.CurrentCulture);
+    }
+
+    private async Task ComputeMD5Hash()
+    {
+        if (uploadedFile is not null && uploadedFile.IsLoaded && !isComputingHash)
+        {
+            try
+            {
+                isComputingHash = true;
+                hashResult = await Task.Run(() => VeeMD5.HashBytes(uploadedFile.Data));
+            }
+            finally
+            {
+                isComputingHash = false;
+            }
+        }
+    }
+}

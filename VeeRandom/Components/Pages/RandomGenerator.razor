@@ -2,48 +2,61 @@
 @using VeeRandom.Generator;
 @using System.Text
 @using Microsoft.JSInterop
-@attribute [RenderModeServer]
 @inject IGenerator Generator
 @inject IJSRuntime JsRuntime
+@inject IOptions<GeneratorSettings> GeneratorSettings
+@using Microsoft.Extensions.Options;
+@using VeeRandomGenerator;
+@attribute [StreamRendering(true)]
+
 
 <PageTitle>VeeRandom</PageTitle>
 
-<h1>Generate random numbers</h1>
+<h1>Random Number Generator</h1>
 
-<div class="form-group">
-    <label for="numberCount">Enter the numbers count:</label>
-    <input id="numberCount" type="number" class="form-control" style="max-width: 300px;" @bind="count" />
-    @if (showError)
-    {
-        <span class="text-danger">The number must be between 1 and 1500.</span>
-    }
-</div>
-
-<br />
-
-<button class="btn btn-primary" @onclick="GenerateRandomNumbers">Generate</button>
-
-<br />
-<br />
-
-@if (randomNumbers.Count > 0)
-{
-    <button class="btn btn-success" @onclick="DownloadNumbers">Download</button>
-}
-
-<br />
-<br />
-
-@if (randomNumbers.Any())
-{
-    <h2>Generated Numbers:</h2>
-    <ul>
-        @foreach (var num in randomNumbers)
+<div class="row">
+    <div class="col-md-3">
+        <h2>Generate random numbers</h2>
+        <div class="form-group">
+            <label for="numberCount">Enter the numbers count:</label>
+            <input id="numberCount" type="number" class="form-control" style="max-width: 300px;" @bind="count" />
+            @if (showError)
+            {
+                <span class="text-danger">The number must be between 1 and 1500.</span>
+            }
+        </div>
+        <br />
+        <button class="btn btn-primary" @onclick="GenerateRandomNumbers">Generate</button>
+        <br />
+        <br />
+        @if (randomNumbers.Count > 0)
         {
-            <li>@num</li>
+            <button class="btn btn-success" @onclick="DownloadNumbers">Download</button>
         }
-    </ul>
-}
+        <br />
+        <br />
+        @if (randomNumbers.Any())
+        {
+            <h3>Generated Numbers:</h3>
+            <ul>
+                @foreach (var num in randomNumbers)
+                {
+                    <li>@num</li>
+                }
+            </ul>
+        }
+    </div>
+    <div class="col-md-4">
+        <h2>Generator parameters</h2>
+        <div>
+            <p><strong>Period:</strong> @period</p>
+            <p><strong>Modulus:</strong> @modulus</p>
+            <p><strong>Multiplier:</strong> @multiplier</p>
+            <p><strong>Increment:</strong> @increment</p>
+            <p><strong>Initial Value:</strong> @initialValue</p>
+        </div>
+    </div>
+</div>
 
 @code {
     private int count = 1;
@@ -80,6 +93,21 @@
 
             await JsRuntime.InvokeAsync<object>("BlazorDownloadFile.saveAsFile", fileName, contentType, result);
         }
+    }
+
+    long period;
+    long modulus;
+    long multiplier;
+    long increment;
+    long initialValue;
+
+    protected override void OnInitialized()
+    {
+        period = Generator.GetPeriod();
+        modulus = GeneratorSettings.Value.Modulus;
+        multiplier = GeneratorSettings.Value.Multiplier;
+        increment = GeneratorSettings.Value.Increment;
+        initialValue = GeneratorSettings.Value.InitialValue;
     }
 }
 

@@ -1,0 +1,68 @@
+﻿@page "/md5-hashing-text"
+@using Microsoft.AspNetCore.Components.Forms
+@using System.IO
+@using VeeRandom.MD5
+@using System.Globalization
+@using System.Text;
+@using Meziantou.Framework
+
+<PageTitle>MD5 Hashing</PageTitle>
+
+<h1>MD5 Hashing</h1>
+
+<div class="row">
+    <div class="col-md-3">
+        <h2>MD5 Hashing</h2>
+
+        <div class="form-group">
+            <label for="inputText">Enter a string:</label>
+            <input type="text" id="inputText" class="form-control" @bind="inputText" />
+            @if (showErrorForStringInput)
+            {
+                <span class="text-danger">
+                    The string length must be less than 300.
+                </span>
+            }
+        </div>
+        <br />
+        <button class="btn btn-primary" @onclick="ComputeMD5Hash">Compute MD5 Hash</button>
+        <br />
+        <br />
+        @if (!string.IsNullOrEmpty(hashResult))
+        {
+            <p>MD5 Hash Result:</p>
+            <p>@hashResult</p>
+        }
+    </div>
+    <br />
+    <br />
+    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/md5-hashing-file">MD5 Hashing for file</a>
+</div>
+
+@code {
+    private string inputText = "";
+    private string hashResult = "";
+    private bool showErrorForStringInput = false;
+
+    private void ComputeMD5Hash()
+    {
+        hashResult = default!;
+
+        if (!string.IsNullOrEmpty(inputText))
+        {
+            if (inputText.Length <= 300)
+            {
+                byte[] inputBytes = Encoding.UTF8.GetBytes(inputText);
+                hashResult = VeeMD5.HashBytes(inputBytes);
+            }
+            else
+            {
+                showErrorForStringInput = true;
+            }
+        }
+        else
+        {
+            // Handle other cases if needed
+        }
+    }
+}

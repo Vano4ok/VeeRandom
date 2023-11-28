@@ -43,7 +43,7 @@ public static class VeeMD5
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
 
-    public static string HashBytes(byte[] data)
+    public static byte[] HashBytes(byte[] data)
     {
         uint a = 0x67452301;
         uint b = 0xefcdab89;
@@ -127,14 +127,7 @@ public static class VeeMD5
         Array.Copy(BitConverter.GetBytes(c), 0, hashBytes, 8, 4);
         Array.Copy(BitConverter.GetBytes(d), 0, hashBytes, 12, 4);
 
-        // Convert the hash to a hexadecimal string
-        var hashBuilder = new StringBuilder();
-        foreach (byte hashByte in hashBytes)
-        {
-            hashBuilder.Append(hashByte.ToString("x2"));
-        }
-
-        return hashBuilder.ToString();
+        return hashBytes;
     }
 
     private static uint F(uint x, uint y, uint z)

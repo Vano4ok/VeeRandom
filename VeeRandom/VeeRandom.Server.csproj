@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\VeeRandom.Generator\VeeRandom.Generator.csproj" />
     <ProjectReference Include="..\VeeRandom.MD5\VeeRandom.MD5.csproj" />
+    <ProjectReference Include="..\VeeRandom.RC5\VeeRandom.RC5.csproj" />
   </ItemGroup>
 
 </Project>

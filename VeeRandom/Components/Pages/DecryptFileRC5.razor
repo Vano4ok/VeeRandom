@@ -1,24 +1,35 @@
-﻿@page "/md5-hashing-file"
+﻿@page "/decrypt-rc5-file"
+
 @using Microsoft.AspNetCore.Components.Forms
 @using System.IO
-@using System.Text
+@using VeeRandom.Generator
 @using VeeRandom.MD5
 @using System.Globalization
 @using Meziantou.Framework
+@using System.Text
+@using VeeRandom.RC5
+@inject IGenerator Generator
+@inject IJSRuntime JsRuntime
 
-<PageTitle>MD5 Hashing</PageTitle>
+<PageTitle>Decrypt RC5</PageTitle>
 
-<h1>MD5 Hashing</h1>
+<h1>Decrypt RC5</h1>
 
 <div class="row">
-    <div class="col-md-3">
+    <div class="col-md-3"> 
         <div class="form-group">
+
+            <div class="form-group">
+                <label for="inputText">Enter a key:</label>
+                <input type="text" id="inputText" class="form-control" @bind="inputText" />
+            </div>
+            <br />
             <label for="fileInput">Upload a file (max 1 GB):</label>
             <InputFile id="fileInput" OnChange="e => LoadFile(e)"></InputFile>
 
             @if (showErrorForFile)
             {
-                <br/>
+                <br />
                 <span class="text-danger">File size exceeds the maximum allowed limit of 1 GB.</span>
             }
 
@@ -34,7 +45,7 @@
         </div>
 
         <br />
-        <button class="btn btn-primary" @onclick="ComputeMD5Hash" disabled="@(uploadedFile is null || !uploadedFile.IsLoaded || isComputingHash)">
+        <button class="btn btn-primary" @onclick="DecryptFile" disabled="@(uploadedFile is null || !uploadedFile.IsLoaded || isComputingHash)">
             @if (isComputingHash)
             {
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -42,7 +53,7 @@
             }
             else
             {
-                <span>Compute MD5 Hash</span>
+                <span>Decrypt</span>
             }
 
         </button>
@@ -55,11 +66,12 @@
         }
     </div>
 
-    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/md5-hashing-text">MD5 Hashing for text</a>
+    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/rc5-file">Encrypt</a>
 </div>
 
 @code {
     private string hashResult = "";
+    private string inputText = "";
     private bool showErrorForFile = false;
     private long maxFileSize1Gb = 1024L * 1024L * 1024L;
 
@@ -133,22 +145,22 @@
         return ByteSize.FromBytes(value).ToString("fi2", CultureInfo.CurrentCulture);
     }
 
-    private async Task ComputeMD5Hash()
+    private async Task DecryptFile()
     {
         if (uploadedFile is not null && uploadedFile.IsLoaded && !isComputingHash)
         {
             try
             {
                 isComputingHash = true;
-                var hash = await Task.Run(() => VeeMD5.HashBytes(uploadedFile.Data));
+                byte[] key = VeeMD5.HashBytes(Encoding.UTF8.GetBytes(inputText));
 
-                var hashBuilder = new StringBuilder();
-                foreach (byte hashByte in hash)
-                {
-                    hashBuilder.Append(hashByte.ToString("x2"));
-                }
+                var rc5 = new VeeRC5(key, Generator);
 
-                hashResult = hashBuilder.ToString();
+                var result = await Task.Run(() => rc5.Decrypt(uploadedFile.Data));
+                var fileName = uploadedFile.FileName.Replace(".enc", "");
+                await JsRuntime.InvokeAsync<object>("BlazorDownloadFile.saveAsFile", fileName, "application/octet-stream", result);
+
+                Console.WriteLine();
             }
             finally
             {
@@ -157,3 +169,23 @@
         }
     }
 }
+
+<script>
+    window.BlazorDownloadFile = {
+        saveAsFile: function (fileName, contentType, dataURL) {
+            const blob = new Blob([dataURL], { type: contentType });
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+
+            a.click();
+
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+    };
+</script>

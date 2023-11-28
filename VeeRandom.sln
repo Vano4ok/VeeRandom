@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VeeRandom.Generator", "VeeR
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VeeRandom.MD5", "VeeRandom.MD5\VeeRandom.MD5.csproj", "{C70175F0-3DA7-4973-AC92-FF2D21EF7EBA}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VeeRandom.RC5", "VeeRandom.RC5\VeeRandom.RC5.csproj", "{7704C673-102B-4133-B30C-27115D8D0598}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{C70175F0-3DA7-4973-AC92-FF2D21EF7EBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C70175F0-3DA7-4973-AC92-FF2D21EF7EBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C70175F0-3DA7-4973-AC92-FF2D21EF7EBA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7704C673-102B-4133-B30C-27115D8D0598}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7704C673-102B-4133-B30C-27115D8D0598}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7704C673-102B-4133-B30C-27115D8D0598}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7704C673-102B-4133-B30C-27115D8D0598}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

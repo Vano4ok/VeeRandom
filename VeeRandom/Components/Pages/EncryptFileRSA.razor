@@ -1,24 +1,36 @@
-﻿@page "/md5-hashing-file"
+﻿@page "/rca-file"
+
 @using Microsoft.AspNetCore.Components.Forms
 @using System.IO
-@using System.Text
+@using VeeRandom.Generator
 @using VeeRandom.MD5
 @using System.Globalization
 @using Meziantou.Framework
+@using System.Text
+@using VeeRandom.RC5
+@using VeeRandom.Server.Services
+@inject IJSRuntime JsRuntime
+@inject RSACryptoService RSACryptoService
 
-<PageTitle>MD5 Hashing</PageTitle>
+<PageTitle>Encrypt RCA</PageTitle>
 
-<h1>MD5 Hashing</h1>
+<h1>Encrypt RCA</h1>
 
 <div class="row">
     <div class="col-md-3">
         <div class="form-group">
+            <div class="form-group">
+                <label for="inputText">Enter a key:</label>
+                <input type="text" id="inputText" class="form-control" @bind="inputText" />
+            </div>
+            <br />
+
             <label for="fileInput">Upload a file (max 1 GB):</label>
             <InputFile id="fileInput" OnChange="e => LoadFile(e)"></InputFile>
 
             @if (showErrorForFile)
             {
-                <br/>
+                <br />
                 <span class="text-danger">File size exceeds the maximum allowed limit of 1 GB.</span>
             }
 
@@ -34,7 +46,7 @@
         </div>
 
         <br />
-        <button class="btn btn-primary" @onclick="ComputeMD5Hash" disabled="@(uploadedFile is null || !uploadedFile.IsLoaded || isComputingHash)">
+        <button class="btn btn-primary" @onclick="EncryptFile" disabled="@(uploadedFile is null || !uploadedFile.IsLoaded || isComputingHash)">
             @if (isComputingHash)
             {
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -42,7 +54,7 @@
             }
             else
             {
-                <span>Compute MD5 Hash</span>
+                <span>Encrypt</span>
             }
 
         </button>
@@ -55,11 +67,13 @@
         }
     </div>
 
-    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/md5-hashing-text">MD5 Hashing for text</a>
+    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/decrypt-rca-file">Decrypt</a>
+    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/rca-keys">Generate keys</a>
 </div>
 
 @code {
     private string hashResult = "";
+    private string inputText = "";
     private bool showErrorForFile = false;
     private long maxFileSize1Gb = 1024L * 1024L * 1024L;
 
@@ -133,22 +147,18 @@
         return ByteSize.FromBytes(value).ToString("fi2", CultureInfo.CurrentCulture);
     }
 
-    private async Task ComputeMD5Hash()
+    private async Task EncryptFile()
     {
         if (uploadedFile is not null && uploadedFile.IsLoaded && !isComputingHash)
         {
             try
             {
                 isComputingHash = true;
-                var hash = await Task.Run(() => VeeMD5.HashBytes(uploadedFile.Data));
+                var result = await RSACryptoService.EncryptAsync(uploadedFile.Data, inputText);
+                var fileName = uploadedFile.FileName + ".enc";
+                await JsRuntime.InvokeAsync<object>("BlazorDownloadFile.saveAsFile", fileName, "application/octet-stream", result);
 
-                var hashBuilder = new StringBuilder();
-                foreach (byte hashByte in hash)
-                {
-                    hashBuilder.Append(hashByte.ToString("x2"));
-                }
-
-                hashResult = hashBuilder.ToString();
+                Console.WriteLine();
             }
             finally
             {
@@ -157,3 +167,23 @@
         }
     }
 }
+
+<script>
+    window.BlazorDownloadFile = {
+        saveAsFile: function (fileName, contentType, dataURL) {
+            const blob = new Blob([dataURL], { type: contentType });
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+
+            a.click();
+
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+    };
+</script>

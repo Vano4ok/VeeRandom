@@ -51,7 +51,15 @@
             if (inputText.Length <= 300)
             {
                 byte[] inputBytes = Encoding.UTF8.GetBytes(inputText);
-                hashResult = VeeMD5.HashBytes(inputBytes);
+                var hash = VeeMD5.HashBytes(inputBytes);
+
+                var hashBuilder = new StringBuilder();
+                foreach (byte hashByte in hash)
+                {
+                    hashBuilder.Append(hashByte.ToString("x2"));
+                }
+
+                hashResult = hashBuilder.ToString();
             }
             else
             {

@@ -1,4 +1,4 @@
-﻿using VeeRandom.Generator;
+﻿using VeeRandomGenerator;
 
 namespace VeeRandom.RC5;
 

@@ -2,7 +2,7 @@
 
 namespace VeeRandom.Server.Services;
 
-internal sealed class RSACryptoService
+public sealed class RSACryptoService
 {
     private const int ChunkSize = 117;
 

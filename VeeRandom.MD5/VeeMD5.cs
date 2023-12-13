@@ -45,6 +45,8 @@ public static class VeeMD5
 
     public static byte[] HashBytes(byte[] data)
     {
+        ArgumentNullException.ThrowIfNull(data);
+
         uint a = 0x67452301;
         uint b = 0xefcdab89;
         uint c = 0x98badcfe;

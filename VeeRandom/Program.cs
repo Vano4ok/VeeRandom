@@ -1,7 +1,6 @@
-using VeeRandom.Generator;
+using VeeRandomGenerator;
 using VeeRandom.Server.Components;
 using VeeRandom.Server.Services;
-using VeeRandomGenerator;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +14,7 @@ builder.Services.Configure<GeneratorSettings>(
 builder.Services.AddTransient<IGenerator, Generator>();
 
 builder.Services.AddTransient<RSACryptoService>();
+builder.Services.AddSingleton<DigitalSignatureService>();
 
 var app = builder.Build();
 

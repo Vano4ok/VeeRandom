@@ -1,4 +1,4 @@
-﻿namespace VeeRandom.Generator;
+﻿namespace VeeRandomGenerator;
 
 public interface IGenerator
 {

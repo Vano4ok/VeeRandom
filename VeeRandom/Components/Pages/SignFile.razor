@@ -1,31 +1,25 @@
-﻿@page "/decrypt-rca-file"
+﻿@page "/sign-file"
 
 @using Microsoft.AspNetCore.Components.Forms
 @using System.IO
+@using VeeRandom.Server.Services
 @using VeeRandomGenerator
 @using VeeRandom.MD5
 @using System.Globalization
 @using Meziantou.Framework
 @using System.Text
 @using VeeRandom.RC5
-@using VeeRandom.Server.Services
 @inject IGenerator Generator
 @inject IJSRuntime JsRuntime
-@inject RSACryptoService RSACryptoService
+@inject DigitalSignatureService digitalSignatureService
 
-<PageTitle>Decrypt RCA</PageTitle>
+<PageTitle>Sign file</PageTitle>
 
-<h1>Decrypt RCA</h1>
+<h1>Sign file</h1>
 
 <div class="row">
     <div class="col-md-3">
         <div class="form-group">
-            <div class="form-group">
-                <label for="inputText">Enter a key:</label>
-                <input type="text" id="inputText" class="form-control" @bind="inputText" />
-            </div>
-            <br />
-
             <label for="fileInput">Upload a file (max 1 GB):</label>
             <InputFile id="fileInput" OnChange="e => LoadFile(e)"></InputFile>
 
@@ -47,7 +41,7 @@
         </div>
 
         <br />
-        <button class="btn btn-primary" @onclick="EncryptFile" disabled="@(uploadedFile is null || !uploadedFile.IsLoaded || isComputingHash)">
+        <button class="btn btn-primary" @onclick="SignFileM" disabled="@(uploadedFile is null || !uploadedFile.IsLoaded || isComputingHash)">
             @if (isComputingHash)
             {
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -55,26 +49,16 @@
             }
             else
             {
-                <span>Decrypt</span>
+                <span>Sign</span>
             }
 
         </button>
-        <br />
-        <br />
-        @if (!string.IsNullOrEmpty(hashResult))
-        {
-            <p>MD5 Hash Result:</p>
-            <p>@hashResult</p>
-        }
     </div>
 
-    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/rca-file">Encrypt</a>
-    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/rca-keys">Generate keys</a>
+    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/verify-file">Verify</a>
 </div>
 
 @code {
-    private string hashResult = "";
-    private string inputText = "";
     private bool showErrorForFile = false;
     private long maxFileSize1Gb = 1024L * 1024L * 1024L;
 
@@ -148,7 +132,7 @@
         return ByteSize.FromBytes(value).ToString("fi2", CultureInfo.CurrentCulture);
     }
 
-    private async Task EncryptFile()
+    private async Task SignFileM()
     {
         if (uploadedFile is not null && uploadedFile.IsLoaded && !isComputingHash)
         {
@@ -156,11 +140,10 @@
             {
                 isComputingHash = true;
 
-                var result = await RSACryptoService.DecryptAsync(uploadedFile.Data, inputText);
+                var result = await Task.Run(() => digitalSignatureService.SignData(uploadedFile.Data));
 
-                var fileName = uploadedFile.FileName.Replace(".enc", "");
+                var fileName = "signature";
                 await JsRuntime.InvokeAsync<object>("BlazorDownloadFile.saveAsFile", fileName, "application/octet-stream", result);
-
             }
             finally
             {

@@ -1,33 +1,32 @@
-﻿@page "/decrypt-rca-file"
+﻿@page "/verify-file"
 
 @using Microsoft.AspNetCore.Components.Forms
 @using System.IO
+@using VeeRandom.Server.Services
 @using VeeRandomGenerator
 @using VeeRandom.MD5
 @using System.Globalization
 @using Meziantou.Framework
 @using System.Text
 @using VeeRandom.RC5
-@using VeeRandom.Server.Services
 @inject IGenerator Generator
 @inject IJSRuntime JsRuntime
-@inject RSACryptoService RSACryptoService
+@inject DigitalSignatureService digitalSignatureService
 
-<PageTitle>Decrypt RCA</PageTitle>
+<PageTitle>Verify file signature</PageTitle>
 
-<h1>Decrypt RCA</h1>
+<h1>Verify file signature</h1>
 
 <div class="row">
     <div class="col-md-3">
         <div class="form-group">
-            <div class="form-group">
-                <label for="inputText">Enter a key:</label>
-                <input type="text" id="inputText" class="form-control" @bind="inputText" />
-            </div>
+            <label for="fileInput">Upload a file to verify:</label>
+            <InputFile id="fileInput" OnChange="e => LoadFile(e)"></InputFile>
+
             <br />
 
-            <label for="fileInput">Upload a file (max 1 GB):</label>
-            <InputFile id="fileInput" OnChange="e => LoadFile(e)"></InputFile>
+            <label for="signatureInput">Upload the signature file:</label>
+            <InputFile id="signatureInput" OnChange="e => LoadSignatureFile(e)"></InputFile>
 
             @if (showErrorForFile)
             {
@@ -35,7 +34,7 @@
                 <span class="text-danger">File size exceeds the maximum allowed limit of 1 GB.</span>
             }
 
-            @if (uploadedFile != null)
+            @if (uploadedFile != null && uploadedSignatureFile != null)
             {
                 <div>
                     @uploadedFile.FileName
@@ -43,45 +42,50 @@
                     @uploadedFile.UploadedPercentage.ToString("F1")%
                     (@FormatBytes(uploadedFile.UploadedBytes) / @FormatBytes(uploadedFile.Size))
                 </div>
+
+                <div>
+                    @uploadedSignatureFile.FileName
+                    <progress value="@uploadedSignatureFile.UploadedBytes" max="@uploadedSignatureFile.Size"></progress>
+                    @uploadedSignatureFile.UploadedPercentage.ToString("F1")%
+                    (@FormatBytes(uploadedSignatureFile.UploadedBytes) / @FormatBytes(uploadedSignatureFile.Size))
+                </div>
             }
         </div>
 
         <br />
-        <button class="btn btn-primary" @onclick="EncryptFile" disabled="@(uploadedFile is null || !uploadedFile.IsLoaded || isComputingHash)">
-            @if (isComputingHash)
+        <button class="btn btn-primary" @onclick="VerifyFileM" disabled="@(uploadedFile is null || uploadedSignatureFile is null || !uploadedFile.IsLoaded || !uploadedSignatureFile.IsLoaded || isVerifying)">
+            @if (isVerifying)
             {
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                <span class="sr-only">Loading...</span>
+                <span class="sr-only">Verifying...</span>
             }
             else
             {
-                <span>Decrypt</span>
+                <span>Verify</span>
             }
-
         </button>
+
         <br />
-        <br />
-        @if (!string.IsNullOrEmpty(hashResult))
+
+        @if (!string.IsNullOrEmpty(result))
         {
-            <p>MD5 Hash Result:</p>
-            <p>@hashResult</p>
+            <p>Result:</p>
+            <p>@result</p>
         }
     </div>
 
-    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/rca-file">Encrypt</a>
-    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/rca-keys">Generate keys</a>
+    <a class="link-dark link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/sign-file">Sign file</a>
 </div>
 
 @code {
-    private string hashResult = "";
-    private string inputText = "";
+    private string result = string.Empty;
     private bool showErrorForFile = false;
     private long maxFileSize1Gb = 1024L * 1024L * 1024L;
 
-    private bool isComputingHash { get; set; }
-    private FileUploadProgress? uploadedFile;
-    private CancellationTokenSource? cancellationTokenSource;
-
+    private bool isVerifying { get; set; }
+    private FileUploadProgress uploadedFile;
+    private FileUploadProgress uploadedSignatureFile;
+    private CancellationTokenSource cancellationTokenSource;
 
     private record FileUploadProgress(string FileName, long Size)
     {
@@ -94,6 +98,16 @@
 
     private async ValueTask LoadFile(InputFileChangeEventArgs e)
     {
+        await LoadFileCommon(e, uploadedFile, (file, progress) => uploadedFile = progress);
+    }
+
+    private async ValueTask LoadSignatureFile(InputFileChangeEventArgs e)
+    {
+        await LoadFileCommon(e, uploadedSignatureFile, (file, progress) => uploadedSignatureFile = progress);
+    }
+
+    private async ValueTask LoadFileCommon(InputFileChangeEventArgs e, FileUploadProgress fileProgress, Action<IBrowserFile?, FileUploadProgress> setFile)
+    {
         if (cancellationTokenSource != null)
         {
             cancellationTokenSource.Cancel();
@@ -101,21 +115,18 @@
 
         cancellationTokenSource = new CancellationTokenSource();
 
-        uploadedFile = default;
-
         IBrowserFile? file = e.File;
 
         if (file.Size > maxFileSize1Gb)
         {
             showErrorForFile = true;
             StateHasChanged();
-
             return;
         }
 
         showErrorForFile = false;
 
-        uploadedFile = new FileUploadProgress(file.Name, file.Size);
+        fileProgress = new FileUploadProgress(file.Name, file.Size);
 
         await using var timer = new Timer(_ => InvokeAsync(() => StateHasChanged()));
         timer.Change(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
@@ -128,64 +139,44 @@
 
             while (await stream.ReadAsync(buffer, cancellationTokenSource.Token) is int read && read > 0)
             {
-                uploadedFile.UploadedBytes += read;
-
+                fileProgress.UploadedBytes += read;
                 memoryStream.Write(buffer.AsMemory().Slice(0, read).ToArray());
             }
 
-            uploadedFile.Data = memoryStream.ToArray();
+            fileProgress.Data = memoryStream.ToArray();
         }
         finally
         {
             System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
 
+            setFile(file, fileProgress);
             StateHasChanged();
         }
     }
+
 
     private string FormatBytes(long value)
     {
         return ByteSize.FromBytes(value).ToString("fi2", CultureInfo.CurrentCulture);
     }
 
-    private async Task EncryptFile()
+    private async Task VerifyFileM()
     {
-        if (uploadedFile is not null && uploadedFile.IsLoaded && !isComputingHash)
+        if (uploadedFile is not null && uploadedFile.IsLoaded &&
+            uploadedSignatureFile is not null && uploadedSignatureFile.IsLoaded && !isVerifying)
         {
             try
             {
-                isComputingHash = true;
+                isVerifying = true;
 
-                var result = await RSACryptoService.DecryptAsync(uploadedFile.Data, inputText);
+                var r = await Task.Run(() => digitalSignatureService.VerifyData(uploadedFile.Data, uploadedSignatureFile.Data));
 
-                var fileName = uploadedFile.FileName.Replace(".enc", "");
-                await JsRuntime.InvokeAsync<object>("BlazorDownloadFile.saveAsFile", fileName, "application/octet-stream", result);
-
+                result = r.ToString();
             }
             finally
             {
-                isComputingHash = false;
+                isVerifying = false;
             }
         }
     }
 }
-
-<script>
-    window.BlazorDownloadFile = {
-        saveAsFile: function (fileName, contentType, dataURL) {
-            const blob = new Blob([dataURL], { type: contentType });
-            const url = window.URL.createObjectURL(blob);
-
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-
-            a.click();
-
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        }
-    };
-</script>
